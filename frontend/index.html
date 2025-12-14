@@ -1,38 +1,226 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Campus Eats</title>
-    <style>
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background-color: #f6f6f6;
-        color: #333;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      /* Simple toast animation */
-      @keyframes slideIn {
-        from { transform: translateY(100%); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Eats</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f6f6f6;
+      color: #333;
+    }
+    header {
+      background: #1c2541;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { margin: 0; font-size: 20px; cursor: pointer; }
+    header span { font-size: 13px; color: #d0d4ff; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+      margin-bottom: 24px;
+    }
+
+    .hero-title { font-size: 32px; margin: 0 0 8px; }
+    .hero-sub { margin: 0 0 20px; color: #666; }
+
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary { background: #4158d0; color: white; }
+    .btn-secondary { background: #e6e9ff; color: #28306f; }
+
+    .hidden { display: none; }
+
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 180px; margin-bottom: 12px; }
+
+    label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
+    input, select, textarea {
+      width: 100%; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid #ccc; font-size: 14px;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .meal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .meal-card {
+      background: #fff; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      overflow: hidden; display: flex; flex-direction: column; height: 100%;
+    }
+    .meal-card img { width: 100%; height: 140px; object-fit: cover; background: #ddd; }
+    .meal-body { padding: 12px 14px 14px; display: flex; flex-direction: column; flex: 1; }
+    .meal-name { font-weight: 600; margin-bottom: 4px; }
+    .meal-meta { font-size: 12px; color: #666; margin-bottom: 6px; }
+
+    .meal-price-row { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+    .price { font-weight: 700; color: #222; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr); gap: 24px; }
+
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+    .cart-card {
+      background: white; border-radius: 10px; padding: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+      max-height: 420px; display: flex; flex-direction: column;
+    }
+    .cart-items { overflow-y: auto; flex: 1; margin-bottom: 12px; }
+    .cart-item { display: flex; justify-content: space-between; align-items: center;
+                 padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 13px; }
+    .cart-summary { border-top: 1px solid #eee; padding-top: 8px;
+                    font-size: 14px; display: flex; justify-content: space-between; }
+
+    .pill { display: inline-block; padding: 2px 8px; font-size: 11px;
+            border-radius: 999px; background: #eefaf2; color: #176b36; margin-top: 4px; }
+  </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body>
+  <header>
+    <h1 id="logo">Campus Eats</h1>
+    <span>Simplified Uber Eats on Azure</span>
+  </header>
+
+  <main>
+    <section id="view-landing" class="card">
+      <h2 class="hero-title">Hungry? We got you.</h2>
+      <p class="hero-sub">Order from campus favorite spots in just a few clicks.</p>
+      <div class="btn-row">
+        <button id="btn-im-customer" class="btn-primary">I'm a customer</button>
+        <button id="btn-im-restaurant" class="btn-secondary">I'm a restaurant</button>
+      </div>
+    </section>
+
+    <section id="view-restaurant" class="card hidden">
+      <h2>Register a meal</h2>
+      <form id="restaurant-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Restaurant name</label>
+            <input id="rest-name" required />
+          </div>
+          <div class="form-group">
+            <label>Delivery area</label>
+            <select id="rest-area">
+              <option value="Central">Central Campus</option>
+              <option value="North">North Campus</option>
+              <option value="South">South Campus</option>
+              <option value="Downtown">Downtown</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Dish name</label>
+            <input id="dish-name" required />
+          </div>
+          <div class="form-group">
+            <label>Price</label>
+            <input type="number" id="dish-price" required />
+          </div>
+          <div class="form-group">
+            <label>Prep time (min)</label>
+            <input type="number" id="dish-prep" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="dish-desc"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Image URL (optional)</label>
+          <input id="dish-img" />
+        </div>
+
+        <button class="btn-primary">Save meal</button>
+        <p id="rest-message"></p>
+      </form>
+    </section>
+
+    <section id="view-customer" class="card hidden">
+      <div class="layout">
+        <div>
+          <h2>Browse meals</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Delivery area</label>
+              <select id="customer-area">
+                <option value="Central">Central Campus</option>
+                <option value="North">North Campus</option>
+                <option value="South">South Campus</option>
+                <option value="Downtown">Downtown</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Search</label>
+              <input id="search-term" placeholder="Burger, sushi..." />
+            </div>
+          </div>
+
+          <div id="meal-grid" class="meal-grid"></div>
+        </div>
+
+        <div>
+          <div class="cart-card">
+            <h3>Your cart</h3>
+            <div id="cart-items" class="cart-items"></div>
+            <div class="cart-summary">
+              <span>Total</span>
+              <span id="cart-total">$0.00</span>
+            </div>
+
+            <form id="order-form">
+              <div class="form-group">
+                <label>Your name</label>
+                <input id="cust-name" required />
+              </div>
+              <div class="form-group">
+                <label>Address</label>
+                <input id="cust-address" required />
+              </div>
+              <button class="btn-primary" style="width:100%;">Place order</button>
+              <p id="order-message"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-confirmation" class="card hidden">
+      <h2>Order confirmed 🎉</h2>
+      <p id="confirm-summary"></p>
+      <p id="confirm-time" class="pill"></p>
+      <button id="btn-new-order" class="btn-secondary">Place another order</button>
+    </section>
+  </main>
+
+  <script src="index.js"></script>
+</body>
 </html>
+
