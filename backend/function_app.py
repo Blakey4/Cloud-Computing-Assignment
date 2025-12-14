@@ -1,216 +1,103 @@
-import json
-import os
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+import os, json, uuid, datetime
 import azure.functions as func
 from azure.data.tables import TableServiceClient
-from azure.storage.queue import QueueClient
 
-app = func.FunctionApp()
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
+CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+if not CONNECTION_STRING:
+    raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING")
 
-def utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+table_service = TableServiceClient.from_connection_string(CONNECTION_STRING)
+meals_table = table_service.get_table_client("Meals")
+orders_table = table_service.get_table_client("Orders")
 
+VALID_AREAS = {"Central", "North", "East"}
 
-def env(name: str, default: Optional[str] = None) -> str:
-    v = os.getenv(name, default)
-    if v is None or str(v).strip() == "":
-        raise ValueError(f"Missing environment variable: {name}")
-    return v
-
-
-def clean_str(x: Any) -> str:
-    return x.strip() if isinstance(x, str) else ""
-
-
-def parse_json(req: func.HttpRequest) -> Optional[Dict[str, Any]]:
-    try:
-        return req.get_json()
-    except Exception:
-        return None
-
-
-def cors_headers(req: func.HttpRequest) -> Dict[str, str]:
-    allowed = os.getenv("ALLOWED_ORIGINS", "*").strip()
-    origin = (req.headers.get("Origin") or "").strip()
-
-    h = {
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    }
-
-    if allowed == "*":
-        h["Access-Control-Allow-Origin"] = "*"
-        return h
-
-    allow_list = [o.strip() for o in allowed.split(",") if o.strip()]
-    if origin and origin in allow_list:
-        h["Access-Control-Allow-Origin"] = origin
-        h["Vary"] = "Origin"
-        return h
-
-    h["Access-Control-Allow-Origin"] = allow_list[0] if allow_list else "*"
-    return h
-
-
-def json_response(req: func.HttpRequest, payload: Any, status_code: int = 200) -> func.HttpResponse:
-    headers = {"Content-Type": "application/json"}
-    headers.update(cors_headers(req))
-    return func.HttpResponse(json.dumps(payload), status_code=status_code, headers=headers)
-
-
-def options_response(req: func.HttpRequest) -> func.HttpResponse:
-    return func.HttpResponse("", status_code=204, headers=cors_headers(req))
-
-
-def table_client(table_name: str):
-    conn = env("STORAGE_CONNECTION_STRING")
-    service = TableServiceClient.from_connection_string(conn_str=conn)
-    return service.get_table_client(table_name=table_name)
-
-
-def queue_client(queue_name: str) -> QueueClient:
-    conn = env("STORAGE_CONNECTION_STRING")
-    return QueueClient.from_connection_string(conn_str=conn, queue_name=queue_name)
-
-
-def log_invalid(reason: str, payload: Any) -> None:
-    try:
-        q_name = os.getenv("INVALID_QUEUE_NAME", "invalid-requests")
-        q = queue_client(q_name)
-        q.create_queue()
-        q.send_message(json.dumps({"reason": reason, "payload": payload, "at": utc_iso()}))
-    except Exception:
-        pass
-
-
-def to_float(x: Any, default: float = 0.0) -> float:
-    try:
-        return float(x)
-    except Exception:
-        return default
-
-
-def to_int(x: Any, default: int = 0) -> int:
-    try:
-        return int(x)
-    except Exception:
-        return default
-
-
-@app.function_name(name="GetMealsByArea")
-@app.route(route="GetMealsByArea", methods=["GET", "OPTIONS"])
+@app.route(route="GetMealsByArea", methods=["GET"])
 def get_meals_by_area(req: func.HttpRequest) -> func.HttpResponse:
-    if req.method == "OPTIONS":
-        return options_response(req)
-
-    area = clean_str(req.params.get("area"))
-    if not area:
-        log_invalid("Missing area in GetMealsByArea", {"query": dict(req.params)})
-        return json_response(req, {"error": "Missing required query param: area"}, 400)
-
-    meals_table = table_client(env("MEALS_TABLE_NAME", "Meals"))
-
-    result: List[Dict[str, Any]] = []
-    try:
-        for e in meals_table.query_entities(query_filter=f"PartitionKey eq '{area}'"):
-            # Map your Table schema into the shape your JS expects
-            meal = {
-                "id": e.get("RowKey"),
-                "name": e.get("dishName", ""),
-                "description": e.get("description", ""),
-                "price": to_float(e.get("price", 0.0)),
-                "prepTime": to_int(e.get("prepMinutes", 0)),
-                "restaurantName": e.get("restaurantName", "Unknown restaurant"),
-                "imageUrl": e.get("imageUrl", "")
-            }
-            result.append(meal)
-    except Exception as ex:
-        log_invalid("Query failed in GetMealsByArea", {"area": area, "error": str(ex)})
-        return json_response(req, {"error": "Failed to read meals"}, 500)
-
-    # IMPORTANT: your JS expects an array, not {meals: [...]}
-    return json_response(req, result, 200)
-
-
-@app.function_name(name="SubmitORder")
-@app.route(route="SubmitORder", methods=["POST", "OPTIONS"])
-def submit_order(req: func.HttpRequest) -> func.HttpResponse:
-    if req.method == "OPTIONS":
-        return options_response(req)
-
-    body = parse_json(req)
-    if body is None:
-        log_invalid("Invalid JSON in SubmitORder", {"raw": req.get_body().decode("utf-8", errors="ignore")})
-        return json_response(req, {"error": "Invalid JSON body"}, 400)
-
-    customer_name = clean_str(body.get("customerName"))
-    address = clean_str(body.get("address"))
-    area = clean_str(body.get("area"))
-    items = body.get("items")
-
-    if not customer_name or not address or not area or not isinstance(items, list) or len(items) == 0:
-        log_invalid("Missing required fields in SubmitORder", body)
-        return json_response(req, {"error": "Required: customerName, address, area, items[]"}, 400)
-
-    # Compute totals based on your JS payload
-    total_cost = 0.0
-    total_prep = 0
-
-    normalized_items: List[Dict[str, Any]] = []
-    for it in items:
-        name = clean_str(it.get("name"))
-        price = to_float(it.get("price", 0.0))
-        prep = to_int(it.get("prepTime", 0))
-        qty = max(1, to_int(it.get("quantity", 1)))
-
-        if not name:
-            continue
-
-        total_cost += price * qty
-        total_prep += prep * qty
-
-        normalized_items.append(
-            {"name": name, "price": price, "prepTime": prep, "quantity": qty}
+    area = req.params.get("area")
+    if area not in VALID_AREAS:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid or missing area"}),
+            status_code=400,
+            mimetype="application/json",
         )
 
-    if len(normalized_items) == 0:
-        log_invalid("No valid items in SubmitORder", body)
-        return json_response(req, {"error": "items[] must include at least one valid item"}, 400)
+    entities = meals_table.query_entities(f"PartitionKey eq '{area}'")
 
-    # ETA formula: sum(prepTime) + pickup 10 + delivery 20
-    estimated_minutes = total_prep + 10 + 20
+    out = []
+    for e in entities:
+        out.append({
+            "mealId": e.get("RowKey"),
+            "area": e.get("PartitionKey"),
+            "name": e.get("DishName") or e.get("Name"),
+            "description": e.get("Description"),
+            "prepTimeMinutes": int(e.get("PrepTimeMinutes", 0)),
+            "price": float(e.get("Price", 0.0)),
+            "restaurantId": e.get("RestaurantId"),
+        })
+
+    return func.HttpResponse(json.dumps(out), status_code=200, mimetype="application/json")
+
+
+@app.route(route="SubmitOrder", methods=["POST"])
+def submit_order(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(json.dumps({"error": "Invalid JSON"}), status_code=400, mimetype="application/json")
+
+    area = body.get("area")
+    items = body.get("items")  # [{mealId, qty}, ...]
+
+    if area not in VALID_AREAS or not isinstance(items, list) or len(items) == 0:
+        return func.HttpResponse(json.dumps({"error": "Invalid order payload"}), status_code=400, mimetype="application/json")
+
+    total = 0.0
+    prep_times = []
+    resolved = []
+
+    for it in items:
+        meal_id = it.get("mealId")
+        qty = it.get("qty", 1)
+        if not meal_id or not isinstance(qty, int) or qty <= 0:
+            return func.HttpResponse(json.dumps({"error": "Invalid items"}), status_code=400, mimetype="application/json")
+
+        try:
+            meal = meals_table.get_entity(partition_key=area, row_key=meal_id)
+        except Exception:
+            return func.HttpResponse(json.dumps({"error": f"Meal not found: {meal_id}"}), status_code=400, mimetype="application/json")
+
+        price = float(meal.get("Price", 0.0))
+        pt = int(meal.get("PrepTimeMinutes", 0))
+        total += price * qty
+        prep_times.append(pt)
+
+        resolved.append({
+            "mealId": meal_id,
+            "qty": qty,
+            "price": price,
+            "prepTimeMinutes": pt,
+            "name": meal.get("DishName") or meal.get("Name"),
+        })
+
+    eta = sum(prep_times) + 5 + 15  # per project brief
 
     order_id = str(uuid.uuid4())
+    now = datetime.datetime.utcnow().isoformat() + "Z"
 
-    # Store in Orders table
-    orders_table = table_client(env("ORDERS_TABLE_NAME", "Orders"))
-    try:
-        orders_table.create_entity(
-            {
-                "PartitionKey": area,
-                "RowKey": order_id,
-                "customerName": customer_name,
-                "address": address,
-                "itemsJson": json.dumps(normalized_items),
-                "totalCost": round(total_cost, 2),
-                "estimatedMinutes": int(estimated_minutes),
-                "createdAt": utc_iso(),
-            }
-        )
-    except Exception as ex:
-        log_invalid("Write failed in SubmitORder", {"error": str(ex), "body": body})
-        return json_response(req, {"error": "Failed to store order"}, 500)
+    orders_table.upsert_entity({
+        "PartitionKey": area,
+        "RowKey": order_id,
+        "CreatedAt": now,
+        "Total": total,
+        "EtaMinutes": eta,
+        "ItemsJson": json.dumps(resolved),
+    })
 
-    return json_response(
-        req,
-        {
-            "orderId": order_id,
-            "totalCost": round(total_cost, 2),
-            "estimatedMinutes": int(estimated_minutes),
-        },
-        200,
+    return func.HttpResponse(
+        json.dumps({"orderId": order_id, "total": round(total, 2), "etaMinutes": eta}),
+        status_code=200,
+        mimetype="application/json",
     )
