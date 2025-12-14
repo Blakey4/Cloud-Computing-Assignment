@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "TABLES_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "MEALS_TABLE_NAME": "Meals",
+    "ORDERS_TABLE_NAME": "Orders",
+    "INVALID_QUEUE_NAME": "invalid-requests",
+    "PICKUP_MINUTES": "10",
+    "DELIVERY_MINUTES": "15",
+    "CORS_ALLOW_ORIGIN": "*"
+  }
+}
