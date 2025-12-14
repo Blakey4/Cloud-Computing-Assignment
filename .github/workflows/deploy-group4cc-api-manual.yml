@@ -19,6 +19,5 @@ jobs:
         uses: Azure/functions-action@v1
         with:
           app-name: 'group4cc-api-manual'
-          slot-name: 'Production'
           package: '.'                     # project is at repo root
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_9A7EB2A87654463BAF4395BE639A049F }}
