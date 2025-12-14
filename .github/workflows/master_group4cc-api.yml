@@ -8,7 +8,6 @@ on:
 
 env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'   # project is at repo root
-  PYTHON_VERSION: '3.11'
 
 jobs:
   build:
@@ -20,19 +19,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python version
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      # Optional: only needed if you want to run tests
-      # - name: Install dependencies (for tests only)
-      #   run: pip install -r requirements.txt
-
       - name: Zip artifact for deployment
         run: |
           zip -r release.zip . \
-            -x "venv/*" ".git/*" ".github/*" ".gitignore"
+            -x "venv/*" ".git/*" ".github/*" "*.pyc" "__pycache__/*"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
