@@ -1,0 +1,23 @@
+name: Deploy Azure Functions - group4cc-api-final
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # No pip install here – Azure will handle requirements.txt
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: 'group4cc-api-final'   # <-- your Function App name
+          package: '.'                     # project at repo root
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_GROUP4CCAPIFINAL }}
