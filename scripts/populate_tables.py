@@ -21,7 +21,6 @@ STORAGE_ACCOUNT_URL = f"https://{STORAGE_ACCOUNT_NAME}.table.core.windows.net"
 CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 if not CONNECTION_STRING:
     raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING environment variable")
-
 RESTAURANT_TABLE = "Restaurants"
 MEALS_TABLE = "Meals"
 
