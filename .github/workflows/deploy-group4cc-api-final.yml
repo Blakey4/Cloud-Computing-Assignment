@@ -18,6 +18,6 @@ jobs:
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
-          app-name: 'group4cc-api-final'   # <-- your Function App name
+          app-name: 'group4cc-api-manual'   # <-- your Function App name
           package: '.'                     # project at repo root
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_GROUP4CCAPIFINAL }}
