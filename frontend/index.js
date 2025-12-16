@@ -230,14 +230,14 @@ async function handleOrderForm(e) {
 
   msg.textContent = "Submitting order...";
 
-  const items = cart.map((m) => ({
-    name: m.name,
-    price: m.price,
-    prepTime: m.prepTime,
-    quantity: 1
-  }));
+  // Convert cart into [{ mealId, qty }] expected by backend
+  const counts = new Map();
+  for (const m of cart) counts.set(m.id, (counts.get(m.id) || 0) + 1);
 
-  const payload = { customerName: name, address, area, items };
+  const items = Array.from(counts.entries()).map(([mealId, qty]) => ({ mealId, qty }));
+
+  const payload = { area, items };
+
 
   try {
     const res = await fetch(SUBMIT_ORDER_URL, {
@@ -257,8 +257,8 @@ async function handleOrderForm(e) {
       name,
       address,
       area,
-      total: data.totalCost,
-      eta: data.estimatedMinutes,
+      total: data.total,
+      eta: data.etaMinutes,
       items: cart.slice(),
       orderId: data.orderId
     };
