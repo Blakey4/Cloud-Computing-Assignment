@@ -4,7 +4,8 @@
 const FUNCTION_BASE = "https://group4cc-functions.azurewebsites.net/api";
 
 const GET_MEALS_URL = FUNCTION_BASE + "/GetMealsByArea";
-const SUBMIT_ORDER_URL = FUNCTION_BASE + "/SubmitOrder"; // note the capital OR
+const SUBMIT_ORDER_URL = FUNCTION_BASE + "/SubmitOrder";
+const CREATE_MEAL_URL = FUNCTION_BASE + "/CreateMeal";
 
 // ===============================
 // App state
@@ -154,6 +155,71 @@ function renderMeals() {
     card.appendChild(body);
     grid.appendChild(card);
   });
+}
+
+// ===============================
+// Restaurant: create meal in Azure
+// ===============================
+async function handleRestaurantForm(e) {
+  e.preventDefault();
+
+  const msg = document.getElementById("rest-message");
+  msg.textContent = "Saving meal...";
+
+  const restaurantName = document.getElementById("rest-name").value.trim();
+  const area = document.getElementById("rest-area").value;
+
+  const name = document.getElementById("dish-name").value.trim();
+  const price = Number(document.getElementById("dish-price").value);
+  const prepTimeMinutes = Number(document.getElementById("dish-prep").value);
+
+  const description = document.getElementById("dish-desc").value.trim();
+  const imageUrl = document.getElementById("dish-img").value.trim();
+
+  if (!restaurantName || !name || !Number.isFinite(price) || !Number.isFinite(prepTimeMinutes)) {
+    msg.textContent = "Please fill restaurant name, dish name, price, and prep time.";
+    return;
+  }
+
+  const payload = {
+    restaurantName,
+    area,
+    name,
+    description,
+    price,
+    prepTimeMinutes,
+    imageUrl
+  };
+
+  try {
+    const res = await fetch(CREATE_MEAL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      msg.textContent = data.error || "Failed to save meal.";
+      return;
+    }
+
+    msg.textContent = `Saved! Meal ID: ${data.mealId || "(unknown)"}`;
+
+    // Optional nice UX: refresh customer meals if you switch over
+    // loadMealsFromAzure();
+
+    // Reset dish fields (leave restaurant + area)
+    document.getElementById("dish-name").value = "";
+    document.getElementById("dish-price").value = "";
+    document.getElementById("dish-prep").value = "";
+    document.getElementById("dish-desc").value = "";
+    document.getElementById("dish-img").value = "";
+  } catch (err) {
+    console.error("CreateMeal failed:", err);
+    msg.textContent = "Network error saving meal.";
+  }
 }
 
 // ===============================
@@ -313,6 +379,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("order-form")
     .addEventListener("submit", handleOrderForm);
+
+  document
+    .getElementById("restaurant-form")
+    .addEventListener("submit", handleRestaurantForm);
+
 
   showView("view-landing");
 });
