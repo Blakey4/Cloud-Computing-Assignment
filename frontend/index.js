@@ -1,8 +1,7 @@
 // ===============================
 // Azure Functions configuration
 // ===============================
-const FUNCTION_BASE =
-  "https://group4cc-func-g5e0fhc9f6fyfpg9.westeurope-01.azurewebsites.net/api";
+const FUNCTION_BASE = "https://group4cc-functions.azurewebsites.net/api";
 
 const GET_MEALS_URL = FUNCTION_BASE + "/GetMealsByArea";
 const SUBMIT_ORDER_URL = FUNCTION_BASE + "/SubmitOrder"; // note the capital OR
