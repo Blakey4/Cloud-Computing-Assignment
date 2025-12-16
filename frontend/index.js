@@ -68,7 +68,7 @@ async function loadMealsFromAzure() {
       description: m.description,
       price: Number(m.price),
       prepTime: Number(m.prepTimeMinutes),
-      restaurantName: m.restaurantId || "Restaurant",
+      restaurantName: m.restaurantName || "Restaurant",
       area: m.area || area,
       imageUrl: ""
     }));
