@@ -61,16 +61,17 @@ async function loadMealsFromAzure() {
 
     const data = await res.json();
 
-    meals = (Array.isArray(data) ? data : []).map((m) => ({
-      id: m.id,
+    meals = (Array.isArray(data) ? data : []).map(m => ({
+      id: m.mealId,
       name: m.name,
       description: m.description,
       price: Number(m.price),
-      prepTime: Number(m.prepTime),
-      restaurantName: m.restaurantName || m.restaurant || "Unknown restaurant",
-      area: area,
-      imageUrl: m.imageUrl || ""
+      prepTime: Number(m.prepTimeMinutes),
+      restaurantName: m.restaurantId || "Restaurant",
+      area: m.area || area,
+      imageUrl: ""
     }));
+
 
     renderMeals();
   } catch (err) {
